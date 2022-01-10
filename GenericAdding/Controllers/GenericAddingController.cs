@@ -18,38 +18,55 @@ namespace GenericAdding.Controllers
         }
 
         [HttpPost]
-        public ActionResult AddItem(ItemToAdd itemtoAdd)
+        public ActionResult AddItem(ItemToAdd itemToAdd)
         {
-            string tableClassName = itemtoAdd.TableName.Singularize().Pascalize();
+            var tableClassName = itemToAdd.TableName.Singularize().Pascalize();
 
-            //To Get the result DbSet as an exaple (_context.Products)
-            Type tableType = Type.GetType($"GenericAdding.Data.Models.{tableClassName}, GenericAdding");
-            Type contextType = typeof(MainContext);
-            var setMethod = contextType.GetMethod("Set", new Type[] { });
-            var genricSetMethod = setMethod.MakeGenericMethod(tableType);
-            var resultList = genricSetMethod.Invoke(_context, null);
+            //To Get the result DbSet as an example (_context.Products)
+            var tableType = Type.GetType($"GenericAdding.Data.Models.{tableClassName}, GenericAdding");
+            if (tableType is null)
+            {
+                return BadRequest("This table doesn't exist");
+            }
+
+            var contextType = typeof(MainContext);
+            var setMethod = contextType.GetMethod("Set", Array.Empty<Type>());
+            var genericSetMethod = setMethod?.MakeGenericMethod(tableType);
+            var resultList = genericSetMethod?.Invoke(_context, null);
 
             //To Get the Add Method as an example (_context.Products.Add) => without calling it 
-            Type dbSetType = typeof(DbSet<>);
-            var dbSetGenericType = dbSetType.MakeGenericType(new[] { tableType });
+            var dbSetType = typeof(DbSet<>);
+            var dbSetGenericType = dbSetType.MakeGenericType(new[] {tableType});
             var addMethod = dbSetGenericType.GetMethod("Add");
 
             //Getting the entity to add ready as an example (var entityToAdd = new Product{Name= "", InstallationFees=500})
             var entityToAdd = Activator.CreateInstance(tableType);
-            itemtoAdd.Fields.ForEach(f =>
+            try
             {
-                var prop = tableType.GetProperty(f.Name.Pascalize());
-                var fieldType = prop.PropertyType;
-                var fieldConvertedValue = Convert.ChangeType(f.Value, fieldType);
-                prop.SetValue(entityToAdd, fieldConvertedValue, null);
-            });
+                itemToAdd.Fields.ForEach(f =>
+                {
+                    var prop = tableType.GetProperty(f.Name.Pascalize());
+                    if (prop is null)
+                    {
+                        throw new Exception($"The field {f.Name} doesn't exist");
+                    }
+
+                    var fieldType = prop.PropertyType;
+                    var fieldConvertedValue = Convert.ChangeType(f.Value, fieldType);
+                    prop.SetValue(entityToAdd, fieldConvertedValue, null);
+                });
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
 
             //Calling Add method
-            addMethod.Invoke(resultList, new[] { entityToAdd });
+            addMethod?.Invoke(resultList, new[] {entityToAdd});
 
             //Calling Save Changes Method
-            var saveChangesMethod = contextType.GetMethod("SaveChanges", new Type[] { });
-            saveChangesMethod.Invoke(_context, null);
+            var saveChangesMethod = contextType.GetMethod("SaveChanges", Array.Empty<Type>());
+            saveChangesMethod?.Invoke(_context, null);
 
             //Or Simply
             _context.SaveChanges();
