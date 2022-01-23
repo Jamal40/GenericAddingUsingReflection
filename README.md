@@ -1,6 +1,7 @@
 # GenericAddingUsingReflection
 
-## have made this idea to practice Reflection.
+## Why?
+have made this idea to practice Reflection.
 
 ## Inspiration
 Drupal inspired me to achieve this idea. I liked how Drupal handles adding/posting different contents using only one endpoint. 
